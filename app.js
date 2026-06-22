@@ -1,28 +1,30 @@
 /* ═══════════════════════════════════════════════════
-   SABOR & FUEGO — app.js (Versión sessionStorage)
-   Frontend: Funciona sin backend usando Web Storage API
+   app.js — Los Consentidos (Versión 100% Frontend)
+   Base de Datos: sessionStorage (Simulación Relacional)
 ═══════════════════════════════════════════════════ */
 
-// Emojis por categoría de platillo
-const CAT_EMOJI = {
-  entrada:   '🥗',
-  principal: '🍽️',
-  postre:    '🍮',
-  bebida:    '🥤',
-  otro:      '🍴',
-};
-
+// ── Estado global ────────────────────────────────────
+let carrito        = {};   
+let allPlatillos   = [];
+let allCategorias  = [];
 let allIngredientes = [];
-let allPlatillos    = [];
-let currentFilter   = 'all';
+let currentFilter  = 'all';
+let allMesas       = [];
+let mesaSeleccionada = null;
+let allEmpleados   = [];   
+let allRoles       = [];
+let allOrdenes     = [];
+let notifInterval  = null;
+let pagoMetodoActual = 'Efectivo';
+let pagoOrdenActual  = null;
+let pagoMontoActual  = 0;
+let estrellaSeleccionada = 0;
 
 /* ════════════════════════════════════════════════
-   UTILIDADES Y STORAGE (BASE DE DATOS SIMULADA)
+   MOTOR DE BASE DE DATOS LOCAL
 ════════════════════════════════════════════════ */
-// Generador de IDs únicos simulando MongoDB
-const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
+const generateId = () => Math.floor(Math.random() * 1000000) + Date.now();
 
-// Funciones CRUD para sessionStorage
 function getDB(table, seedData = []) {
   const data = sessionStorage.getItem(table);
   if (data) return JSON.parse(data);
@@ -34,21 +36,33 @@ function saveDB(table, data) {
   sessionStorage.setItem(table, JSON.stringify(data));
 }
 
-// Datos iniciales por si la sesión está vacía
-const seedPlatillos = [
-  { _id: generateId(), nombre: 'Caldo de piedra', descripcion: 'Caldo ancestral de camarón cocido con piedras volcánicas calientes.', categoria: 'entrada', precio: 280, frecuencia: 14 },
-  { _id: generateId(), nombre: 'Mixiote de borrego', descripcion: 'Borrego marinado en adobo rojo.', categoria: 'principal', precio: 420, frecuencia: 31 },
-  { _id: generateId(), nombre: 'Agua de Jamaica', descripcion: 'Agua fresca de flor de jamaica.', categoria: 'bebida', precio: 80, frecuencia: 40 }
+// ── Datos Semilla (Catálogos Iniciales) ──
+const seedRoles = [
+  { id: 1, nombre_rol: 'Administrador' }, { id: 2, nombre_rol: 'Mesero' }, { id: 3, nombre_rol: 'Cajero' }
 ];
-
+const seedCategorias = [
+  { id: 1, nombre: 'Entradas' }, { id: 2, nombre: 'Plato Principal' }, { id: 3, nombre: 'Bebidas' }, { id: 4, nombre: 'Postres' }
+];
+const seedPlatillos = [
+  { id: 1, nombre: 'Enchiladas de Mole Negro', precio: 360, id_categorias: 2 },
+  { id: 2, nombre: 'Caldo de Piedra', precio: 280, id_categorias: 1 },
+  { id: 3, nombre: 'Agua de Jamaica', precio: 80, id_categorias: 3 }
+];
 const seedIngredientes = [
-  { _id: generateId(), nombre: 'Chile ancho', existencia: 20, minimo: 10, unidad: 'kg' },
-  { _id: generateId(), nombre: 'Masa de maíz', existencia: 50, minimo: 20, unidad: 'kg' },
-  { _id: generateId(), nombre: 'Crema de rancho', existencia: 0, minimo: 5, unidad: 'litros' }
+  { id: 1, nombre: 'Masa de maíz', unidad: 'KG', minimo: 20 },
+  { id: 2, nombre: 'Chile ancho', unidad: 'KG', minimo: 10 }
+];
+const seedInventario = [
+  { id: 1, id_ingrediente: 1, cantidad: 50, fecha: new Date().toISOString() },
+  { id: 2, id_ingrediente: 2, cantidad: 20, fecha: new Date().toISOString() }
+];
+const seedEmpleados = [
+  { id: 1, nombre: 'Valentina', paterno: 'Ruiz', materno: 'Torres', telefono: '5511223344', fecha_ingreso: new Date().toISOString().slice(0, 10), fecha_egreso: null, rol: 1, turno: 'Mañana' },
+  { id: 2, nombre: 'Diego', paterno: 'Morales', materno: 'Herrera', telefono: '5544332211', fecha_ingreso: new Date().toISOString().slice(0, 10), fecha_egreso: null, rol: 2, turno: 'Tarde' }
 ];
 
 /* ════════════════════════════════════════════════
-   UI HELPERS & NAVBAR
+   UTILIDADES Y MODALES
 ════════════════════════════════════════════════ */
 window.addEventListener('scroll', () => {
   document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
@@ -56,324 +70,235 @@ window.addEventListener('scroll', () => {
 
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
-  t.textContent = type === 'success' ? '✅  ' + msg : '❌  ' + msg;
-  t.className   = `toast ${type} show`;
-  setTimeout(() => t.className = 'toast', 3500);
+  t.textContent = (type === 'success' ? '✅  ' : '❌  ') + msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3500);
 }
 
-function fmt(val) {
-  return '$' + Number(val).toLocaleString('es-MX', { minimumFractionDigits: 2 });
-}
+const fmt = val => '$' + Number(val).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+const esc = str => str == null ? '' : String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-function escHtml(str) {
-  if (str == null) return '';
-  return String(str)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  if (id === 'modalOrden') renderPlatillosOrden(allPlatillos);
 }
-
-/* ════════════════════════════════════════════════
-   MODALES
-════════════════════════════════════════════════ */
-function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function closeModalOutside(e, id) { if (e.target === e.currentTarget) closeModal(id); }
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape')
-    document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
 });
 
 /* ════════════════════════════════════════════════
-   STATS
+   CARRITO
 ════════════════════════════════════════════════ */
-function loadStats() {
-  const platillos = getDB('platillos', seedPlatillos);
-  const ordenes = getDB('ordenes', []);
-  const ingredientes = getDB('ingredientes', seedIngredientes);
-  
-  document.getElementById('statPlatillos').textContent    = platillos.length;
-  document.getElementById('statOrdenes').textContent      = ordenes.filter(o => o.estado).length;
-  document.getElementById('statIngredientes').textContent = ingredientes.length;
+function agregarAlCarrito(id, nombre, precio) {
+  if (carrito[id]) carrito[id].cantidad++;
+  else carrito[id] = { nombre, precio: Number(precio), cantidad: 1 };
+  renderCarrito();
+}
+
+function cambiarCantidad(id, delta) {
+  if (!carrito[id]) return;
+  carrito[id].cantidad += delta;
+  if (carrito[id].cantidad <= 0) delete carrito[id];
+  renderCarrito();
+}
+
+function limpiarCarrito() {
+  carrito = {};
+  renderCarrito();
+}
+
+function renderCarrito() {
+  const wrap = document.getElementById('carritoItems');
+  const totalEl = document.getElementById('carritoTotal');
+  const keys = Object.keys(carrito);
+
+  if (!keys.length) {
+    wrap.innerHTML = '<p class="carrito-empty">Selecciona platillos del menú →</p>';
+    totalEl.textContent = '$0.00';
+    return;
+  }
+
+  let total = 0;
+  wrap.innerHTML = keys.map(id => {
+    const item = carrito[id];
+    const sub = item.precio * item.cantidad;
+    total += sub;
+    return `
+      <div class="carrito-item">
+        <div class="ci-info">
+          <span class="ci-nombre">${esc(item.nombre)}</span>
+          <span class="ci-precio">${fmt(item.precio)} c/u</span>
+        </div>
+        <div class="ci-controls">
+          <button class="ci-btn" onclick="cambiarCantidad('${id}', -1)">−</button>
+          <span class="ci-cant">${item.cantidad}</span>
+          <button class="ci-btn" onclick="cambiarCantidad('${id}', 1)">+</button>
+        </div>
+        <span class="ci-sub">${fmt(sub)}</span>
+      </div>`;
+  }).join('');
+  totalEl.textContent = fmt(total);
+}
+
+function filtrarPlatillosOrden(q) {
+  renderPlatillosOrden(allPlatillos.filter(p => p.nombre.toLowerCase().includes(q.toLowerCase())));
+}
+
+function renderPlatillosOrden(lista) {
+  const wrap = document.getElementById('platillosOrdenList');
+  if (!lista.length) {
+    wrap.innerHTML = '<p class="carrito-empty">No se encontraron platillos.</p>';
+    return;
+  }
+  wrap.innerHTML = lista.map(p => `
+    <div class="plat-orden-item" onclick="agregarAlCarrito(${p.id}, '${esc(p.nombre)}', ${p.precio})">
+      <div class="poi-info">
+        <span class="poi-nombre">${esc(p.nombre)}</span>
+        <span class="poi-cat">${esc(p.categoria || 'Sin categoría')}</span>
+      </div>
+      <div class="poi-right">
+        <span class="poi-precio">${fmt(p.precio)}</span>
+        <span class="poi-add">+</span>
+      </div>
+    </div>
+  `).join('');
 }
 
 /* ════════════════════════════════════════════════
-   MENÚ DE PLATILLOS
+   STATS & CATEGORÍAS
+════════════════════════════════════════════════ */
+function loadStats() {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const plat = getDB('platillo', seedPlatillos);
+  const ord = getDB('orden', []).filter(o => o.fecha.startsWith(hoy));
+  const ing = getDB('ingredientes', seedIngredientes);
+  
+  document.getElementById('statPlatillos').textContent = plat.length;
+  document.getElementById('statOrdenes').textContent = ord.length;
+  document.getElementById('statIngredientes').textContent = ing.length;
+}
+
+function loadCategorias() {
+  allCategorias = getDB('categorias', seedCategorias);
+  allCategorias.sort((a,b) => a.nombre.localeCompare(b.nombre));
+
+  const sel = document.getElementById('plat-cat');
+  sel.innerHTML = allCategorias.map(c => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+
+  const wrap = document.getElementById('menuFilters');
+  wrap.innerHTML = `<button class="filter-btn active" data-filter="all">Todo 🌟</button>`;
+  allCategorias.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn';
+    btn.dataset.filter = c.nombre;
+    btn.textContent = c.nombre;
+    wrap.appendChild(btn);
+  });
+
+  wrap.addEventListener('click', e => {
+    if (!e.target.classList.contains('filter-btn')) return;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    currentFilter = e.target.dataset.filter;
+    renderMenu(allPlatillos);
+  });
+}
+
+/* ════════════════════════════════════════════════
+   MENÚ
 ════════════════════════════════════════════════ */
 function loadMenu() {
-  const platillos = getDB('platillos', seedPlatillos);
-  allPlatillos = platillos;
-  renderMenu(platillos);
-  populatePlatillosSelect(platillos);
+  const platillos = getDB('platillo', seedPlatillos);
+  const cats = getDB('categorias', seedCategorias);
+  const catMap = {};
+  cats.forEach(c => { catMap[c.id] = c.nombre; });
+
+  allPlatillos = platillos.map(p => ({
+    ...p, categoria: catMap[p.id_categorias] || 'Sin categoría'
+  })).sort((a,b) => a.nombre.localeCompare(b.nombre));
+  
+  renderMenu(allPlatillos);
+  renderPlatillosOrden(allPlatillos);
+}
+
+const EMOJIS = { 'Tacos': '🌮', 'Quesadilla': '🧀', 'Pozole': '🍲', 'Agua': '🥤', 'Enchilada': '🌯', 'Sopa': '🍜', 'Chile': '🌶️', 'default': '🍽️' };
+function getEmoji(nombre) {
+  for (const [key, emoji] of Object.entries(EMOJIS)) {
+    if (key !== 'default' && nombre.toLowerCase().includes(key.toLowerCase())) return emoji;
+  }
+  return EMOJIS.default;
+}
+function catClass(cat) {
+  const c = (cat || '').toLowerCase();
+  if (c.includes('entrada')) return 'cat-entrada';
+  if (c.includes('postre')) return 'cat-postre';
+  if (c.includes('bebida')) return 'cat-bebida';
+  return 'cat-principal';
 }
 
 function renderMenu(platillos) {
   const grid = document.getElementById('menuGrid');
-  const list = currentFilter === 'all'
-    ? platillos
-    : platillos.filter(p => p.categoria === currentFilter);
+  const list = currentFilter === 'all' ? platillos : platillos.filter(p => p.categoria === currentFilter);
 
   if (!list.length) {
     grid.innerHTML = '<div class="menu-loading"><p>No hay platillos en esta categoría 🍃</p></div>';
     return;
   }
-
-  grid.innerHTML = list.map(p => {
-    const emoji   = CAT_EMOJI[p.categoria] || '🍴';
-    const catClass = `cat-${p.categoria || 'otro'}`;
-    return `
-      <div class="menu-card">
-        <span class="menu-card-emoji">${emoji}</span>
-        <span class="menu-card-cat ${catClass}">${p.categoria || 'platillo'}</span>
-        <h3>${escHtml(p.nombre)}</h3>
-        <p>${escHtml(p.descripcion || 'Preparado con ingredientes frescos de la región.')}</p>
-        <div class="menu-card-footer">
-          <div class="menu-price">${fmt(p.precio)}</div>
-          ${p.frecuencia > 0 ? `<span class="menu-freq-badge">⭐ ${p.frecuencia} pedidos</span>` : ''}
-        </div>
+  
+  grid.innerHTML = list.map(p => `
+    <div class="menu-card" onclick="agregarDesdeMenu(${p.id}, '${esc(p.nombre)}', ${p.precio})">
+      <span class="menu-card-emoji">${getEmoji(p.nombre)}</span>
+      <span class="menu-card-cat ${catClass(p.categoria)}">${esc(p.categoria)}</span>
+      <h3>${esc(p.nombre)}</h3>
+      <p>Delicioso platillo preparado al momento con ingredientes frescos.</p>
+      <div class="menu-card-footer">
+        <div class="menu-price">${fmt(p.precio)}</div>
+        <span class="menu-add-hint">Toca para ordenar</span>
       </div>
-    `;
-  }).join('');
+    </div>
+  `).join('');
 }
 
-function populatePlatillosSelect(platillos) {
-  const sel = document.getElementById('ord-platillos');
-  sel.innerHTML = platillos.map(p =>
-    `<option value="${p._id}">${CAT_EMOJI[p.categoria] || '🍴'} ${escHtml(p.nombre)} — ${fmt(p.precio)}</option>`
-  ).join('');
+function agregarDesdeMenu(id, nombre, precio) {
+  agregarAlCarrito(id, nombre, precio);
+  showToast(`${nombre} agregado a la orden`);
+  if (!document.getElementById('modalOrden').classList.contains('open')) openModal('modalOrden');
 }
-
-// Filtros
-document.querySelectorAll('.filter-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentFilter = btn.dataset.filter;
-    renderMenu(allPlatillos);
-  });
-});
 
 function crearPlatillo() {
   const nombre = document.getElementById('plat-nombre').value.trim();
-  const desc   = document.getElementById('plat-desc').value.trim();
-  const cat    = document.getElementById('plat-cat').value;
+  const cat_id = document.getElementById('plat-cat').value;
   const precio = parseFloat(document.getElementById('plat-precio').value);
 
-  if (!nombre)      return showToast('El nombre es obligatorio', 'error');
-  if (isNaN(precio)) return showToast('Ingresa un precio válido', 'error');
+  if (!nombre) return showToast('El nombre es obligatorio', 'error');
+  if (isNaN(precio) || precio < 0) return showToast('Ingresa un precio válido', 'error');
 
-  const platillos = getDB('platillos', seedPlatillos);
+  const platillos = getDB('platillo', seedPlatillos);
   platillos.push({
-    _id: generateId(),
-    nombre, descripcion: desc, categoria: cat, precio, frecuencia: 0
+    id: generateId(), nombre, id_categorias: cat_id ? parseInt(cat_id) : null, precio
   });
   
-  saveDB('platillos', platillos);
+  saveDB('platillo', platillos);
   showToast('¡Platillo agregado al menú! 🎉');
   closeModal('modalPlatillo');
-  ['plat-nombre', 'plat-desc', 'plat-precio'].forEach(id => document.getElementById(id).value = '');
-  loadMenu();
-  loadStats();
+  document.getElementById('plat-nombre').value = '';
+  document.getElementById('plat-precio').value = '';
+  loadMenu(); loadStats();
 }
 
 /* ════════════════════════════════════════════════
-   ÓRDENES
+   ÓRDENES (Simulación de JOINs)
 ════════════════════════════════════════════════ */
 function loadOrdenes() {
   const grid = document.getElementById('ordenesGrid');
-  const ordenes = getDB('ordenes', []);
+  const hoyStr = new Date().toISOString().slice(0, 10);
   
-  if (!ordenes.length) {
-    grid.innerHTML = '<div class="empty-state"><span class="empty-icon">🎉</span><p>Sin órdenes por ahora — ¡todo tranquilo!</p></div>';
-    return;
-  }
-  
-  grid.innerHTML = ordenes.map(o => {
-    const activa = o.estado;
-    return `
-      <div class="orden-card ${activa ? '' : 'cerrada'}">
-        <div class="orden-header">
-          <div class="orden-mesa-num">Mesa ${o.mesa_numero || '—'}</div>
-          <span class="badge ${activa ? 'badge-activa' : 'badge-cerrada'}">${activa ? '● Activa' : '✓ Cerrada'}</span>
-        </div>
-        <div class="orden-total">${fmt(o.cuenta_total || 0)}</div>
-        <div class="orden-fecha">📅 ${new Date(o.fecha).toLocaleString('es-MX')}</div>
-        ${activa ? `<button class="action-btn" style="margin-top:0.75rem" onclick="cerrarOrden('${o._id}')">Cerrar orden</button>` : ''}
-      </div>
-    `;
-  }).join('');
-}
+  let ordenesDB = getDB('orden', []).filter(o => o.fecha.startsWith(hoyStr)).sort((a,b) => b.id - a.id);
+  const detallesDB = getDB('detalle_orden', []);
+  const platillosDB = getDB('platillo', seedPlatillos);
+  const ingresosDB = getDB('ingreso', []).filter(i => i.fecha.startsWith(hoyStr));
+  const cobradas = new Set(ingresosDB.map(i => i.id_orden));
 
-function crearOrden() {
-  const mesa      = document.getElementById('ord-mesa').value.trim();
-  const empId     = document.getElementById('ord-empleado').value.trim();
-  const selEl     = document.getElementById('ord-platillos');
-  const platillosSeleccionados = Array.from(selEl.selectedOptions).map(o => o.value);
-
-  if (!mesa) return showToast('Indica el número de mesa', 'error');
-  if (!platillosSeleccionados.length) return showToast('Selecciona al menos un platillo', 'error');
-
-  const platillosDB = getDB('platillos', seedPlatillos);
-  let cuenta_total = 0;
-  
-  // Aumentar la frecuencia de los platillos pedidos y calcular el total
-  platillosSeleccionados.forEach(id => {
-    const platillo = platillosDB.find(p => p._id === id);
-    if (platillo) {
-      cuenta_total += platillo.precio;
-      platillo.frecuencia += 1;
-    }
-  });
-  saveDB('platillos', platillosDB); // Guardar frecuencias actualizadas
-
-  const ordenes = getDB('ordenes', []);
-  ordenes.unshift({ // Agregar al inicio para ver las más recientes primero
-    _id: generateId(),
-    mesa_numero: Number(mesa),
-    empleado_id: empId || null,
-    platillos: platillosSeleccionados,
-    estado: true, // true = activa
-    cuenta_total: cuenta_total,
-    fecha: Date.now()
-  });
-  
-  saveDB('ordenes', ordenes);
-  showToast('¡Orden creada! 🛒');
-  closeModal('modalOrden');
-  
-  document.getElementById('ord-mesa').value = '';
-  document.getElementById('ord-empleado').value = '';
-  Array.from(selEl.options).forEach(o => o.selected = false);
-  
-  loadMenu(); // Actualizar estrellas de frecuencia
-  loadOrdenes();
-  loadStats();
-}
-
-function cerrarOrden(id) {
-  let ordenes = getDB('ordenes', []);
-  ordenes = ordenes.map(o => o._id === id ? { ...o, estado: false } : o);
-  
-  saveDB('ordenes', ordenes);
-  showToast('Orden cerrada ✓');
-  loadOrdenes();
-  loadStats();
-}
-
-/* ════════════════════════════════════════════════
-   INVENTARIO
-════════════════════════════════════════════════ */
-function loadInventario() {
-  const ingredientes = getDB('ingredientes', seedIngredientes);
-  allIngredientes = ingredientes;
-  renderInventario(ingredientes);
-  renderStockAlerts(ingredientes);
-}
-
-function renderStockAlerts(items) {
-  const wrap = document.getElementById('stockAlerts');
-  const low   = items.filter(i => i.existencia > 0 && i.existencia < i.minimo);
-  const empty = items.filter(i => i.existencia <= 0);
-
-  let html = '';
-  empty.forEach(i => {
-    html += `<div class="alert-card danger">❌ <strong>${escHtml(i.nombre)}</strong> — AGOTADO</div>`;
-  });
-  low.forEach(i => {
-    html += `<div class="alert-card">⚠️ <strong>${escHtml(i.nombre)}</strong> — Stock bajo (${i.existencia} ${i.unidad})</div>`;
-  });
-  wrap.innerHTML = html;
-}
-
-function renderInventario(items) {
-  const tbody = document.getElementById('invBody');
-  if (!items.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="table-empty">🧺 Sin ingredientes registrados.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = items.map(i => {
-    let sc, sl;
-    if (i.existencia <= 0)            { sc = 'empty'; sl = '❌ Agotado'; }
-    else if (i.existencia < i.minimo) { sc = 'low';   sl = '⚠️ Bajo'; }
-    else                              { sc = 'ok';    sl = '✅ OK'; }
-    return `
-      <tr>
-        <td><strong>${escHtml(i.nombre)}</strong></td>
-        <td>${i.existencia}</td>
-        <td>${i.minimo}</td>
-        <td>${escHtml(i.unidad)}</td>
-        <td><span class="stock-pill ${sc}">${sl}</span></td>
-        <td>
-          <button class="action-btn" onclick="editarStock('${i._id}', ${i.existencia})">Editar</button>
-          <button class="action-btn del" onclick="eliminarIngrediente('${i._id}')">Eliminar</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
-
-function filterInventario(q) {
-  renderInventario(allIngredientes.filter(i =>
-    i.nombre.toLowerCase().includes(q.toLowerCase())
-  ));
-}
-
-function crearIngrediente() {
-  const nombre     = document.getElementById('ing-nombre').value.trim();
-  const existencia = Number(document.getElementById('ing-existencia').value);
-  const minimo     = Number(document.getElementById('ing-minimo').value);
-  const unidad     = document.getElementById('ing-unidad').value.trim();
-
-  if (!nombre || !unidad) return showToast('Nombre y unidad son obligatorios', 'error');
-
-  const ingredientes = getDB('ingredientes', seedIngredientes);
-  ingredientes.push({
-    _id: generateId(),
-    nombre, existencia, minimo, unidad
-  });
-  
-  saveDB('ingredientes', ingredientes);
-  showToast('¡Ingrediente agregado! 🧺');
-  closeModal('modalIngrediente');
-  
-  ['ing-nombre', 'ing-existencia', 'ing-minimo', 'ing-unidad'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-  
-  loadInventario();
-  loadStats();
-}
-
-function editarStock(id, actual) {
-  const nuevo = prompt(`Existencia actual: ${actual}\nNueva cantidad:`);
-  if (nuevo === null || nuevo.trim() === '') return;
-  
-  let ingredientes = getDB('ingredientes', seedIngredientes);
-  ingredientes = ingredientes.map(i => i._id === id ? { ...i, existencia: Number(nuevo) } : i);
-  
-  saveDB('ingredientes', ingredientes);
-  showToast('Stock actualizado ✓');
-  loadInventario();
-}
-
-function eliminarIngrediente(id) {
-  if (!confirm('¿Seguro que quieres eliminar este ingrediente?')) return;
-  
-  let ingredientes = getDB('ingredientes', seedIngredientes);
-  ingredientes = ingredientes.filter(i => i._id !== id);
-  
-  saveDB('ingredientes', ingredientes);
-  showToast('Ingrediente eliminado');
-  loadInventario();
-  loadStats();
-}
-
-/* ════════════════════════════════════════════════
-   INIT
-════════════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded', () => {
-  loadMenu();
-  loadStats();
-  // Simulamos click en actualizar órdenes para pintarlas inicialmente
-  loadOrdenes();
-  loadInventario();
-});
+  // Sim
