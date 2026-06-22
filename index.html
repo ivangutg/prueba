@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Los Consentidos — Restaurante</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,700;0,900;1,700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+  <!-- ░░ NAV ░░ -->
+  <nav id="navbar">
+    <div class="nav-inner">
+      <a href="#inicio" class="nav-logo">
+        <span class="logo-icon">🔥</span> Los Consentidos
+      </a>
+      <ul class="nav-links">
+        <li><a href="#menu">Menú</a></li>
+        <li><a href="#ordenes">Órdenes</a></li>
+        <li><a href="#inventario">Inventario</a></li>
+      </ul>
+      <button class="nav-cta" onclick="openModal('modalOrden')">🛒 Ordenar</button>
+    </div>
+  </nav>
+
+  <!-- ░░ HERO ░░ -->
+  <section id="inicio" class="hero">
+    <div class="hero-blobs">
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
+      <div class="blob blob-3"></div>
+    </div>
+    <div class="hero-content">
+      <div class="hero-tag">🌮 Comida mexicana de corazón</div>
+      <h1 class="hero-title">
+        El sabor que<br/><span class="title-highlight">te hace volver</span>
+      </h1>
+      <p class="hero-desc">
+        Platillos preparados con amor, ingredientes frescos y las recetas que llevan generaciones en nuestra familia. ¡Bienvenido!
+      </p>
+      <div class="hero-actions">
+        <button class="btn-primary" onclick="document.getElementById('menu').scrollIntoView({behavior:'smooth'})">
+          Ver menú 🍽️
+        </button>
+        <button class="btn-secondary" onclick="openModal('modalOrden')">
+          Hacer pedido
+        </button>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="emoji-float e1">🌮</div>
+      <div class="emoji-float e2">🫔</div>
+      <div class="emoji-float e3">🌶️</div>
+      <div class="emoji-float e4">🍜</div>
+      <div class="emoji-float e5">🥑</div>
+      <div class="emoji-float e6">🍋</div>
+      <div class="big-plate">
+        <div class="plate-ring r1"></div>
+        <div class="plate-ring r2"></div>
+        <div class="plate-center">🍛</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ░░ STATS ░░ -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <span class="stat-num" id="statPlatillos">—</span>
+      <span class="stat-label">Platillos</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-num" id="statOrdenes">—</span>
+      <span class="stat-label">Órdenes hoy</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-num" id="statIngredientes">—</span>
+      <span class="stat-label">Ingredientes</span>
+    </div>
+  </div>
+
+  <!-- ░░ MENÚ ░░ -->
+  <section id="menu" class="section-menu">
+    <div class="section-header">
+      <div class="section-pill">🍴 Nuestra carta</div>
+      <h2>¿Qué se te antoja hoy?</h2>
+      <p class="section-sub">Todos los platillos preparados al momento con ingredientes frescos</p>
+    </div>
+
+    <div class="menu-filters">
+      <button class="filter-btn active" data-filter="all">Todo 🌟</button>
+      <button class="filter-btn" data-filter="entrada">Entradas 🥗</button>
+      <button class="filter-btn" data-filter="principal">Principales 🍽️</button>
+      <button class="filter-btn" data-filter="postre">Postres 🍮</button>
+      <button class="filter-btn" data-filter="bebida">Bebidas 🥤</button>
+    </div>
+
+    <div class="menu-grid" id="menuGrid">
+      <div class="menu-loading">
+        <div class="spinner"></div>
+        <p>Cargando el menú…</p>
+      </div>
+    </div>
+
+    <div class="menu-add-wrap">
+      <button class="btn-outline-color" onclick="openModal('modalPlatillo')">
+        + Agregar platillo al menú
+      </button>
+    </div>
+  </section>
+
+  <!-- ░░ ÓRDENES ░░ -->
+  <section id="ordenes" class="section-ordenes">
+    <div class="section-header">
+      <div class="section-pill teal">📋 Pedidos</div>
+      <h2>Órdenes activas</h2>
+      <p class="section-sub">Sigue en tiempo real el estado de cada mesa</p>
+    </div>
+    <div class="ordenes-controls">
+      <button class="btn-primary" onclick="loadOrdenes()">🔄 Actualizar órdenes</button>
+      <button class="btn-secondary" onclick="openModal('modalOrden')">+ Nueva orden</button>
+    </div>
+    <div class="ordenes-grid" id="ordenesGrid">
+      <div class="empty-state">
+        <span class="empty-icon">📭</span>
+        <p>Haz clic en "Actualizar órdenes" para ver los pedidos</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ░░ INVENTARIO ░░ -->
+  <section id="inventario" class="section-inventario">
+    <div class="section-header">
+      <div class="section-pill orange">🧺 Almacén</div>
+      <h2>Inventario de ingredientes</h2>
+      <p class="section-sub">Controla el stock de cada ingrediente</p>
+    </div>
+    <div class="inv-controls">
+      <input type="text" id="invSearch" placeholder="🔍  Buscar ingrediente…" oninput="filterInventario(this.value)"/>
+      <button class="btn-primary" onclick="loadInventario()">Cargar inventario</button>
+      <button class="btn-secondary" onclick="openModal('modalIngrediente')">+ Agregar</button>
+    </div>
+
+    <!-- Cards de alertas de stock -->
+    <div class="stock-alerts" id="stockAlerts"></div>
+
+    <div class="inv-table-wrap">
+      <table class="inv-table" id="invTable">
+        <thead>
+          <tr>
+            <th>Ingrediente</th>
+            <th>Existencia</th>
+            <th>Mínimo</th>
+            <th>Unidad</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="invBody">
+          <tr><td colspan="6" class="table-empty">Carga el inventario para verlo aquí</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ░░ FOOTER ░░ -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="footer-logo">🔥 Sabor & Fuego</span>
+        <p>Comida mexicana con alma y sazón</p>
+      </div>
+      <div class="footer-links">
+        <a href="#menu">Menú</a>
+        <a href="#ordenes">Órdenes</a>
+        <a href="#inventario">Inventario</a>
+      </div>
+      <div class="footer-info">
+        <p>Práctica 3.1 · ESCOM IPN · 2026</p>
+        <p>MongoDB Atlas · Node.js · Render</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ══════════ MODALES ══════════ -->
+
+  <!-- Modal: Nueva Orden -->
+  <div class="modal-overlay" id="modalOrden" onclick="closeModalOutside(event,'modalOrden')">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('modalOrden')">✕</button>
+      <div class="modal-icon">🛒</div>
+      <h3 class="modal-title">Nueva orden</h3>
+      <div class="modal-body">
+        <label>Número de mesa</label>
+        <input type="number" id="ord-mesa" placeholder="Ej. 5" min="1"/>
+        <label>Platillos <span class="label-hint">(Ctrl+clic para varios)</span></label>
+        <select id="ord-platillos" multiple size="5" class="multi-select"></select>
+        <label>ID del empleado <span class="label-hint">(opcional)</span></label>
+        <input type="text" id="ord-empleado" placeholder="ID del empleado que atiende"/>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="closeModal('modalOrden')">Cancelar</button>
+        <button class="btn-confirm" onclick="crearOrden()">Crear orden ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nuevo Platillo -->
+  <div class="modal-overlay" id="modalPlatillo" onclick="closeModalOutside(event,'modalPlatillo')">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('modalPlatillo')">✕</button>
+      <div class="modal-icon">🍽️</div>
+      <h3 class="modal-title">Nuevo platillo</h3>
+      <div class="modal-body">
+        <label>Nombre del platillo</label>
+        <input type="text" id="plat-nombre" placeholder="Ej. Tacos de canasta"/>
+        <label>Descripción</label>
+        <input type="text" id="plat-desc" placeholder="Breve descripción…"/>
+        <label>Categoría</label>
+        <select id="plat-cat">
+          <option value="entrada">Entrada</option>
+          <option value="principal" selected>Principal</option>
+          <option value="postre">Postre</option>
+          <option value="bebida">Bebida</option>
+        </select>
+        <label>Precio (MXN)</label>
+        <input type="number" id="plat-precio" placeholder="0.00" min="0" step="0.50"/>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="closeModal('modalPlatillo')">Cancelar</button>
+        <button class="btn-confirm" onclick="crearPlatillo()">Guardar ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nuevo Ingrediente -->
+  <div class="modal-overlay" id="modalIngrediente" onclick="closeModalOutside(event,'modalIngrediente')">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('modalIngrediente')">✕</button>
+      <div class="modal-icon">🧺</div>
+      <h3 class="modal-title">Agregar ingrediente</h3>
+      <div class="modal-body">
+        <label>Nombre</label>
+        <input type="text" id="ing-nombre" placeholder="Ej. Chile ancho"/>
+        <label>Existencia actual</label>
+        <input type="number" id="ing-existencia" placeholder="0" min="0"/>
+        <label>Cantidad mínima</label>
+        <input type="number" id="ing-minimo" placeholder="0" min="0"/>
+        <label>Unidad</label>
+        <input type="text" id="ing-unidad" placeholder="kg, litros, piezas…"/>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="closeModal('modalIngrediente')">Cancelar</button>
+        <button class="btn-confirm" onclick="crearIngrediente()">Guardar ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
