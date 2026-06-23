@@ -19,14 +19,6 @@
    - [4.2 Tablas Resultantes del Esquema Relacional](#42-tablas-resultantes-del-esquema-relacional)
    - [4.3 Diagrama del Modelo Relacional](#43-diagrama-del-modelo-relacional)
    - [4.4 Diccionario de Datos](#44-diccionario-de-datos)
-5. [Implementación — DDL y Restricciones de Dominio](#5-implementación--ddl-y-restricciones-de-dominio)
-   - [5.1 Sistema Gestor de Base de Datos](#51-sistema-gestor-de-base-de-datos)
-   - [5.2 Creación del Esquema — DDL Principal](#52-creación-del-esquema--ddl-principal)
-   - [5.3 Restricciones de Dominio Implementadas](#53-restricciones-de-dominio-implementadas)
-6. [Arquitectura del Sistema](#6-arquitectura-del-sistema)
-   - [6.1 Stack Tecnológico](#61-stack-tecnológico)
-   - [6.2 Módulos Funcionales](#62-módulos-funcionales)
-7. [Pruebas de Integridad y Seguridad](#7-pruebas-de-integridad-y-seguridad)
 
 ---
 
