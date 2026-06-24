@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════
    app.js — Los Consentidos (Versión 100% Frontend)
-   Base de Datos: sessionStorage (Simulación Relacional)
+   Base de Datos: localStorage + Control de Sesión
 ═══════════════════════════════════════════════════ */
 
 // ── Estado global ────────────────────────────────────
@@ -21,46 +21,70 @@ let pagoMontoActual  = 0;
 let estrellaSeleccionada = 0;
 
 /* ════════════════════════════════════════════════
+   CONTROLADOR DE SESIÓN DEL NAVEGADOR
+════════════════════════════════════════════════ */
+// Borra el progreso al cerrar TODO el navegador, pero
+// mantiene los datos al abrir/cerrar pestañas individuales.
+function inicializarSesion() {
+  if (document.cookie.indexOf("sesion_restaurante_activa=true") === -1) {
+    localStorage.clear(); // Limpia datos de la sesión anterior
+    document.cookie = "sesion_restaurante_activa=true; path=/";
+  }
+}
+inicializarSesion();
+
+/* ════════════════════════════════════════════════
    MOTOR DE BASE DE DATOS LOCAL
 ════════════════════════════════════════════════ */
 const generateId = () => Math.floor(Math.random() * 1000000) + Date.now();
 
 function getDB(table, seedData = []) {
-  const data = sessionStorage.getItem(table);
+  const data = localStorage.getItem(table);
   if (data) return JSON.parse(data);
-  sessionStorage.setItem(table, JSON.stringify(seedData));
+  // Si no hay datos (porque se limpió al abrir el navegador),
+  // se insertan los datos semilla automáticamente.
+  localStorage.setItem(table, JSON.stringify(seedData));
   return seedData;
 }
 
 function saveDB(table, data) {
-  sessionStorage.setItem(table, JSON.stringify(data));
+  localStorage.setItem(table, JSON.stringify(data));
 }
 
 // ── Datos Semilla (Catálogos Iniciales) ──
 const seedRoles = [
-  { id: 1, nombre_rol: 'Administrador' }, { id: 2, nombre_rol: 'Mesero' }, { id: 3, nombre_rol: 'Cajero' }
+  { id: 1, nombre_rol: 'Administrador' }, 
+  { id: 2, nombre_rol: 'Mesero' }, 
+  { id: 3, nombre_rol: 'Cajero' }
 ];
+
 const seedCategorias = [
-  { id: 1, nombre: 'Entradas' }, { id: 2, nombre: 'Plato Principal' }, { id: 3, nombre: 'Bebidas' }, { id: 4, nombre: 'Postres' }
+  { id: 1, nombre: 'Entradas' }, 
+  { id: 2, nombre: 'Plato Principal' }, 
+  { id: 3, nombre: 'Bebidas' }, 
+  { id: 4, nombre: 'Postres' }
 ];
+
 const seedPlatillos = [
   { id: 1, nombre: 'Enchiladas de Mole Negro', precio: 360, id_categorias: 2 },
   { id: 2, nombre: 'Caldo de Piedra', precio: 280, id_categorias: 1 },
   { id: 3, nombre: 'Agua de Jamaica', precio: 80, id_categorias: 3 }
 ];
+
 const seedIngredientes = [
   { id: 1, nombre: 'Masa de maíz', unidad: 'KG', minimo: 20 },
   { id: 2, nombre: 'Chile ancho', unidad: 'KG', minimo: 10 }
 ];
+
 const seedInventario = [
   { id: 1, id_ingrediente: 1, cantidad: 50, fecha: new Date().toISOString() },
   { id: 2, id_ingrediente: 2, cantidad: 20, fecha: new Date().toISOString() }
 ];
+
 const seedEmpleados = [
   { id: 1, nombre: 'Valentina', paterno: 'Ruiz', materno: 'Torres', telefono: '5511223344', fecha_ingreso: new Date().toISOString().slice(0, 10), fecha_egreso: null, rol: 1, turno: 'Mañana' },
   { id: 2, nombre: 'Diego', paterno: 'Morales', materno: 'Herrera', telefono: '5544332211', fecha_ingreso: new Date().toISOString().slice(0, 10), fecha_egreso: null, rol: 2, turno: 'Tarde' }
 ];
-
 /* ════════════════════════════════════════════════
    UTILIDADES Y MODALES
 ════════════════════════════════════════════════ */
